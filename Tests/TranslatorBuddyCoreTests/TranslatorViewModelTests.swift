@@ -96,6 +96,23 @@ final class TranslatorViewModelTests: XCTestCase {
         XCTAssertTrue(viewModel.savedTranslations.isEmpty)
     }
 
+    func testClearResultOnlyClearsGivenLanguageBox() throws {
+        let viewModel = makeViewModel()
+        viewModel.sourceText = "hola"
+        viewModel.flushDebounceForTesting()
+
+        let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        let englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+        viewModel.complete(englishRequest, translatedText: "hello")
+
+        viewModel.clearResult(for: .french)
+        viewModel.complete(frenchRequest, translatedText: "salut")
+
+        XCTAssertEqual(viewModel.results.first(where: { $0.target == .french })?.status, .idle)
+        XCTAssertEqual(viewModel.results.first(where: { $0.target == .english })?.status, .translated("hello"))
+    }
+
     private func makeViewModel(
         scheduler: DebounceScheduling = ManualDebounceScheduler()
     ) -> TranslatorViewModel {

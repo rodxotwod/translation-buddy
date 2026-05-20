@@ -108,7 +108,10 @@ struct TranslatorPanelView: View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 ForEach(viewModel.results) { result in
-                    TranslationResultCard(result: result)
+                    TranslationResultCard(
+                        result: result,
+                        onClear: { viewModel.clearResult(for: result.target) }
+                    )
                 }
 
                 if !viewModel.savedTranslations.isEmpty {
@@ -163,6 +166,7 @@ private struct SavedTranslationsView: View {
 
 private struct TranslationResultCard: View {
     let result: TranslationResult
+    let onClear: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -170,6 +174,13 @@ private struct TranslationResultCard: View {
                 Text(result.target.displayName)
                     .font(.subheadline.weight(.semibold))
                 Spacer()
+                if result.status != .idle {
+                    Button(action: onClear) {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Clear \(result.target.displayName)")
+                }
                 statusIcon
             }
 

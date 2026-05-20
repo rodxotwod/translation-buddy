@@ -4,7 +4,7 @@ import TranslatorBuddyCore
 struct SettingsView: View {
     @ObservedObject var viewModel: TranslatorViewModel
     @ObservedObject var shortcutStore: ShortcutSettingsStore
-    let hotkeyController: HotkeyController
+    let onShortcutChanged: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -37,7 +37,7 @@ struct SettingsView: View {
         .padding(24)
         .frame(width: 540, height: 520)
         .onChange(of: shortcutStore.preference) { _, _ in
-            hotkeyController.register()
+            onShortcutChanged()
         }
     }
 

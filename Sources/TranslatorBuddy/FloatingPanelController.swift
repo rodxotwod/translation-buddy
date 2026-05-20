@@ -5,10 +5,12 @@ import TranslatorBuddyCore
 @MainActor
 final class FloatingPanelController {
     private let viewModel: TranslatorViewModel
+    private let onOpenSettings: () -> Void
     private var panel: SpotlightPanel?
 
-    init(viewModel: TranslatorViewModel) {
+    init(viewModel: TranslatorViewModel, onOpenSettings: @escaping () -> Void) {
         self.viewModel = viewModel
+        self.onOpenSettings = onOpenSettings
     }
 
     func toggle() {
@@ -52,9 +54,7 @@ final class FloatingPanelController {
             rootView: TranslatorPanelView(
                 viewModel: viewModel,
                 onClose: { [weak self] in self?.hide() },
-                onOpenSettings: {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }
+                onOpenSettings: onOpenSettings
             )
         )
 

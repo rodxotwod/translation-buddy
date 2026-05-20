@@ -146,6 +146,11 @@ public final class TranslatorViewModel: ObservableObject {
         historyStore.clear()
     }
 
+    public func clearResult(for target: TranslationTarget) {
+        pendingRequests = pendingRequests.filter { $0.target.languageIdentifier != target.languageIdentifier }
+        updateStatus(for: target, status: .idle)
+    }
+
     public func flushDebounceForTesting() {
         pendingDebounce?.cancel()
         issueRequests()
