@@ -7,16 +7,25 @@ struct TranslatorPanelView: View {
     let onClose: () -> Void
     let onOpenSettings: () -> Void
 
-    @FocusState private var editorFocused: Bool
+    @FocusState private var focusedLanguageID: String?
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
             HStack(spacing: 0) {
-                sourcePane
+                if let spanishPanel {
+                    LanguagePanelCard(
+                        panel: spanishPanel,
+                        text: binding(for: spanishPanel.language),
+                        isFocused: $focusedLanguageID,
+                        onClear: { viewModel.clearResult(for: spanishPanel.language) }
+                    )
+                    .padding(18)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
                 Divider()
-                resultsPane
+                targetPanelsPane
             }
         }
         .frame(minWidth: 680, minHeight: 480)
@@ -28,7 +37,7 @@ struct TranslatorPanelView: View {
                 .accessibilityHidden(true)
         }
         .onAppear {
-            editorFocused = true
+            focusedLanguageID = TranslationTarget.spanish.id
         }
         .onExitCommand {
             onClose()
@@ -44,7 +53,7 @@ struct TranslatorPanelView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Translator Buddy")
                     .font(.headline)
-                Text("Spanish to \(viewModel.targets.map(\.displayName).joined(separator: " + "))")
+                Text(viewModel.panels.map(\.language.displayName).joined(separator: " + "))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -53,7 +62,7 @@ struct TranslatorPanelView: View {
 
             Button {
                 viewModel.resetCurrentTranslation()
-                editorFocused = true
+                focusedLanguageID = TranslationTarget.spanish.id
             } label: {
                 Image(systemName: "plus.square")
             }
@@ -76,41 +85,19 @@ struct TranslatorPanelView: View {
         .padding(.vertical, 14)
     }
 
-    private var sourcePane: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Spanish", systemImage: "pencil.line")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            TextEditor(text: $viewModel.sourceText)
-                .font(.system(size: 20, weight: .regular, design: .default))
-                .scrollContentBackground(.hidden)
-                .focused($editorFocused)
-                .padding(10)
-                .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 8))
-                .overlay {
-                    if viewModel.sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Type Spanish here")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.tertiary)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 18)
-                            .allowsHitTesting(false)
-                    }
-                }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private var spanishPanel: LanguagePanelState? {
+        viewModel.panels.first { $0.language == .spanish }
     }
 
-    private var resultsPane: some View {
+    private var targetPanelsPane: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                ForEach(viewModel.results) { result in
-                    TranslationResultCard(
-                        result: result,
-                        onClear: { viewModel.clearResult(for: result.target) }
+                ForEach(viewModel.panels.filter { $0.language != .spanish }) { panel in
+                    LanguagePanelCard(
+                        panel: panel,
+                        text: binding(for: panel.language),
+                        isFocused: $focusedLanguageID,
+                        onClear: { viewModel.clearResult(for: panel.language) }
                     )
                 }
 
@@ -124,6 +111,13 @@ struct TranslatorPanelView: View {
             .padding(18)
         }
         .frame(width: 330)
+    }
+
+    private func binding(for language: TranslationTarget) -> Binding<String> {
+        Binding(
+            get: { viewModel.text(for: language) },
+            set: { viewModel.setText($0, for: language) }
+        )
     }
 }
 
@@ -164,55 +158,54 @@ private struct SavedTranslationsView: View {
     }
 }
 
-private struct TranslationResultCard: View {
-    let result: TranslationResult
+private struct LanguagePanelCard: View {
+    let panel: LanguagePanelState
+    @Binding var text: String
+    var isFocused: FocusState<String?>.Binding
     let onClear: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(result.target.displayName)
+                Text(panel.language.displayName)
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                if result.status != .idle {
+                if panel.status != .idle || !text.isEmpty {
                     Button(action: onClear) {
                         Image(systemName: "xmark.circle")
                     }
                     .buttonStyle(.borderless)
-                    .help("Clear \(result.target.displayName)")
+                    .help("Clear \(panel.language.displayName)")
                 }
                 statusIcon
             }
 
-            content
+            TextEditor(text: $text)
                 .font(.system(size: 17))
+                .scrollContentBackground(.hidden)
+                .focused(isFocused, equals: panel.language.id)
+                .padding(8)
                 .frame(maxWidth: .infinity, minHeight: 82, alignment: .topLeading)
+                .background(.background.opacity(0.55), in: RoundedRectangle(cornerRadius: 8))
+                .overlay {
+                    if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("Type \(panel.language.displayName)")
+                            .font(.system(size: 17))
+                            .foregroundStyle(.tertiary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 14)
+                            .allowsHitTesting(false)
+                    }
+                }
         }
         .padding(14)
         .background(.background.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder
-    private var content: some View {
-        switch result.status {
-        case .idle:
-            Text("Translation will appear here.")
-                .foregroundStyle(.tertiary)
-        case .translating:
-            Text("Translating...")
-                .foregroundStyle(.secondary)
-        case .translated(let text):
-            Text(text)
-                .textSelection(.enabled)
-        case .failed(let message):
-            Text(message)
-                .foregroundStyle(.red)
-        }
-    }
-
-    @ViewBuilder
     private var statusIcon: some View {
-        switch result.status {
+        switch panel.status {
         case .idle:
             Image(systemName: "circle")
                 .foregroundStyle(.tertiary)
@@ -251,7 +244,7 @@ private struct NativeTranslationTaskView: View {
             .onAppear {
                 viewModel.markTranslating(request)
                 configuration = TranslationSession.Configuration(
-                    source: Locale.Language(identifier: TranslatorViewModel.sourceLanguageIdentifier),
+                    source: Locale.Language(identifier: request.sourceLanguageIdentifier),
                     target: Locale.Language(identifier: request.target.languageIdentifier)
                 )
             }

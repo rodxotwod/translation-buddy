@@ -41,11 +41,10 @@ public final class AnyCancellableTask: CancellableTask, @unchecked Sendable {
 public final class TranslatorViewModel: ObservableObject {
     public static let sourceLanguageIdentifier = "es"
 
-    @Published public var sourceText: String = "" {
-        didSet { scheduleTranslation() }
-    }
-
+    @Published public private(set) var sourceText: String = ""
+    @Published public private(set) var activeLanguage: TranslationTarget = .spanish
     @Published public private(set) var targets: [TranslationTarget]
+    @Published public private(set) var panels: [LanguagePanelState]
     @Published public private(set) var results: [TranslationResult]
     @Published public private(set) var pendingRequests: [TranslationRequest] = []
     @Published public private(set) var savedTranslations: [SavedTranslationRecord]
@@ -69,6 +68,7 @@ public final class TranslatorViewModel: ObservableObject {
         self.debounceInterval = debounceInterval
         let loadedTargets = settingsStore.loadTargets()
         self.targets = loadedTargets
+        self.panels = Self.makePanels(for: loadedTargets)
         self.results = loadedTargets.map { TranslationResult(target: $0) }
         self.savedTranslations = historyStore.loadRecords()
     }
@@ -116,18 +116,18 @@ public final class TranslatorViewModel: ObservableObject {
     }
 
     public func markTranslating(_ request: TranslationRequest) {
-        updateStatus(for: request.target, status: .translating)
+        updatePanel(for: request.target, status: .translating)
     }
 
     public func complete(_ request: TranslationRequest, translatedText: String) {
         guard isCurrent(request) else { return }
-        updateStatus(for: request.target, status: .translated(translatedText))
+        updatePanel(for: request.target, text: translatedText, status: .translated(translatedText))
         saveCurrentTranslation(for: request)
     }
 
     public func fail(_ request: TranslationRequest, message: String) {
         guard isCurrent(request) else { return }
-        updateStatus(for: request.target, status: .failed(message))
+        updatePanel(for: request.target, status: .failed(message))
     }
 
     public func clearSettingsError() {
@@ -138,7 +138,8 @@ public final class TranslatorViewModel: ObservableObject {
         pendingDebounce?.cancel()
         sourceText = ""
         pendingRequests = []
-        results = targets.map { TranslationResult(target: $0) }
+        panels = visibleLanguages.map { LanguagePanelState(language: $0) }
+        syncResultsFromPanels()
     }
 
     public func clearSavedTranslations() {
@@ -148,60 +149,125 @@ public final class TranslatorViewModel: ObservableObject {
 
     public func clearResult(for target: TranslationTarget) {
         pendingRequests = pendingRequests.filter { $0.target.languageIdentifier != target.languageIdentifier }
-        updateStatus(for: target, status: .idle)
+        updatePanel(for: target, text: "", status: .idle)
+    }
+
+    public func text(for language: TranslationTarget) -> String {
+        panels.first { $0.language.languageIdentifier == language.languageIdentifier }?.text ?? ""
+    }
+
+    public func setText(_ text: String, for language: TranslationTarget) {
+        pendingDebounce?.cancel()
+        activeLanguage = language
+        updatePanel(for: language, text: text, status: .idle)
+
+        if language == .spanish {
+            sourceText = text
+        }
+
+        scheduleTranslation(from: language)
     }
 
     public func flushDebounceForTesting() {
         pendingDebounce?.cancel()
-        issueRequests()
+        issueRequests(from: activeLanguage)
     }
 
-    private func scheduleTranslation() {
+    private func scheduleTranslation(from language: TranslationTarget) {
         pendingDebounce?.cancel()
 
-        let trimmed = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = text(for: language).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             pendingRequests = []
-            results = targets.map { TranslationResult(target: $0) }
+            panels = visibleLanguages.map { LanguagePanelState(language: $0) }
+            sourceText = ""
+            syncResultsFromPanels()
             return
         }
 
         pendingDebounce = scheduler.schedule(after: debounceInterval) { [weak self] in
-            self?.issueRequests()
+            self?.issueRequests(from: language)
         }
     }
 
-    private func issueRequests() {
-        let trimmed = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func issueRequests(from language: TranslationTarget) {
+        let trimmed = text(for: language).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             pendingRequests = []
-            results = targets.map { TranslationResult(target: $0) }
+            panels = visibleLanguages.map { LanguagePanelState(language: $0) }
+            sourceText = ""
+            syncResultsFromPanels()
             return
         }
 
         let batchID = UUID()
-        let requests = targets.map { TranslationRequest(batchID: batchID, sourceText: trimmed, target: $0) }
+        let requests = visibleLanguages
+            .filter { $0.languageIdentifier != language.languageIdentifier }
+            .map {
+                TranslationRequest(
+                    batchID: batchID,
+                    sourceLanguageIdentifier: language.languageIdentifier,
+                    sourceText: trimmed,
+                    target: $0
+                )
+            }
         pendingRequests = requests
-        results = targets.map { TranslationResult(target: $0, status: .translating) }
+        panels = panels.map { panel in
+            guard panel.language.languageIdentifier != language.languageIdentifier else {
+                return LanguagePanelState(language: panel.language, text: panel.text, status: .idle)
+            }
+
+            return LanguagePanelState(language: panel.language, text: panel.text, status: .translating)
+        }
+        syncResultsFromPanels()
     }
 
     private func persistTargetsAndRefreshResults() {
         settingsStore.saveTargets(targets)
-        results = targets.map { target in
-            results.first(where: { $0.target.languageIdentifier == target.languageIdentifier })
-                ?? TranslationResult(target: target)
+        panels = visibleLanguages.map { language in
+            panels.first(where: { $0.language.languageIdentifier == language.languageIdentifier })
+                ?? LanguagePanelState(language: language)
+        }
+        if !visibleLanguages.contains(where: { $0.languageIdentifier == activeLanguage.languageIdentifier }) {
+            activeLanguage = .spanish
         }
         lastSettingsError = nil
-        scheduleTranslation()
+        syncResultsFromPanels()
+        scheduleTranslation(from: activeLanguage)
     }
 
-    private func updateStatus(for target: TranslationTarget, status: TranslationStatus) {
-        results = results.map { result in
-            guard result.target.languageIdentifier == target.languageIdentifier else {
-                return result
+    private var visibleLanguages: [TranslationTarget] {
+        [.spanish] + targets
+    }
+
+    private static func makePanels(for targets: [TranslationTarget]) -> [LanguagePanelState] {
+        ([.spanish] + targets).map { LanguagePanelState(language: $0) }
+    }
+
+    private func updatePanel(for language: TranslationTarget, text: String? = nil, status: TranslationStatus) {
+        panels = panels.map { panel in
+            guard panel.language.languageIdentifier == language.languageIdentifier else {
+                return panel
             }
 
-            return TranslationResult(target: target, status: status)
+            return LanguagePanelState(
+                language: panel.language,
+                text: text ?? panel.text,
+                status: status
+            )
+        }
+
+        if language == .spanish, let text {
+            sourceText = text
+        }
+
+        syncResultsFromPanels()
+    }
+
+    private func syncResultsFromPanels() {
+        results = targets.map { target in
+            let panel = panels.first { $0.language.languageIdentifier == target.languageIdentifier }
+            return TranslationResult(target: target, status: panel?.status ?? .idle)
         }
     }
 
@@ -210,12 +276,16 @@ public final class TranslatorViewModel: ObservableObject {
     }
 
     private func saveCurrentTranslation(for request: TranslationRequest) {
-        let outputs = results.compactMap { result -> SavedTranslationOutput? in
-            guard case .translated(let text) = result.status else {
+        let outputs = panels.compactMap { panel -> SavedTranslationOutput? in
+            guard
+                panel.language.languageIdentifier != request.sourceLanguageIdentifier,
+                case .translated = panel.status,
+                !panel.text.isEmpty
+            else {
                 return nil
             }
 
-            return SavedTranslationOutput(target: result.target, text: text)
+            return SavedTranslationOutput(target: panel.language, text: panel.text)
         }
 
         guard !outputs.isEmpty else { return }
@@ -223,7 +293,7 @@ public final class TranslatorViewModel: ObservableObject {
         let record = SavedTranslationRecord(
             id: request.batchID,
             sourceText: request.sourceText,
-            sourceLanguageIdentifier: Self.sourceLanguageIdentifier,
+            sourceLanguageIdentifier: request.sourceLanguageIdentifier,
             outputs: outputs
         )
         savedTranslations = historyStore.upsert(record, into: savedTranslations)

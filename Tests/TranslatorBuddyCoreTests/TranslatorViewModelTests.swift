@@ -7,11 +7,11 @@ final class TranslatorViewModelTests: XCTestCase {
     func testBlankInputClearsResults() {
         let viewModel = makeViewModel()
 
-        viewModel.sourceText = "hola"
+        viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
         XCTAssertTrue(viewModel.results.allSatisfy { $0.status == .translating })
 
-        viewModel.sourceText = "   "
+        viewModel.setText("   ", for: .spanish)
 
         XCTAssertTrue(viewModel.pendingRequests.isEmpty)
         XCTAssertEqual(viewModel.results.map(\.status), [.idle, .idle])
@@ -21,20 +21,21 @@ final class TranslatorViewModelTests: XCTestCase {
         let scheduler = ManualDebounceScheduler()
         let viewModel = makeViewModel(scheduler: scheduler)
 
-        viewModel.sourceText = "h"
-        viewModel.sourceText = "ho"
-        viewModel.sourceText = "hola"
+        viewModel.setText("h", for: .spanish)
+        viewModel.setText("ho", for: .spanish)
+        viewModel.setText("hola", for: .spanish)
 
         XCTAssertEqual(scheduler.scheduledCount, 3)
         scheduler.runAll()
 
         XCTAssertEqual(viewModel.pendingRequests.map(\.sourceText), ["hola", "hola"])
+        XCTAssertEqual(viewModel.pendingRequests.map(\.sourceLanguageIdentifier), ["es", "es"])
         XCTAssertTrue(viewModel.results.allSatisfy { $0.status == .translating })
     }
 
     func testFailedTranslationUpdatesOnlyAffectedTarget() throws {
         let viewModel = makeViewModel()
-        viewModel.sourceText = "hola"
+        viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
 
         let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
@@ -49,7 +50,7 @@ final class TranslatorViewModelTests: XCTestCase {
 
     func testCompletedTranslationsAreSavedLocally() throws {
         let viewModel = makeViewModel()
-        viewModel.sourceText = "hola"
+        viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
 
         let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
@@ -71,7 +72,7 @@ final class TranslatorViewModelTests: XCTestCase {
 
     func testResetCurrentTranslationKeepsSavedTranslations() throws {
         let viewModel = makeViewModel()
-        viewModel.sourceText = "hola"
+        viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
 
         let request = try XCTUnwrap(viewModel.pendingRequests.first)
@@ -86,7 +87,7 @@ final class TranslatorViewModelTests: XCTestCase {
 
     func testClearSavedTranslationsRemovesHistory() throws {
         let viewModel = makeViewModel()
-        viewModel.sourceText = "hola"
+        viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
 
         let request = try XCTUnwrap(viewModel.pendingRequests.first)
@@ -98,7 +99,7 @@ final class TranslatorViewModelTests: XCTestCase {
 
     func testClearResultOnlyClearsGivenLanguageBox() throws {
         let viewModel = makeViewModel()
-        viewModel.sourceText = "hola"
+        viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
 
         let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
@@ -110,7 +111,28 @@ final class TranslatorViewModelTests: XCTestCase {
         viewModel.complete(frenchRequest, translatedText: "salut")
 
         XCTAssertEqual(viewModel.results.first(where: { $0.target == .french })?.status, .idle)
+        XCTAssertEqual(viewModel.text(for: .french), "")
         XCTAssertEqual(viewModel.results.first(where: { $0.target == .english })?.status, .translated("hello"))
+    }
+
+    func testTypingInEnglishTranslatesOtherVisiblePanels() throws {
+        let viewModel = makeViewModel()
+
+        viewModel.setText("hello", for: .english)
+        viewModel.flushDebounceForTesting()
+
+        XCTAssertEqual(viewModel.activeLanguage, .english)
+        XCTAssertEqual(viewModel.pendingRequests.map(\.target), [.spanish, .french])
+        XCTAssertEqual(viewModel.pendingRequests.map(\.sourceLanguageIdentifier), ["en", "en"])
+
+        let spanishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .spanish }))
+        let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        viewModel.complete(spanishRequest, translatedText: "hola")
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+
+        XCTAssertEqual(viewModel.text(for: .english), "hello")
+        XCTAssertEqual(viewModel.text(for: .spanish), "hola")
+        XCTAssertEqual(viewModel.text(for: .french), "bonjour")
     }
 
     private func makeViewModel(

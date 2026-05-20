@@ -45,7 +45,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Settings")
                 .font(.title2.weight(.semibold))
-            Text("Spanish is fixed as the source language for this version.")
+            Text("Spanish is always shown. Toggle the other editable language panels.")
                 .foregroundStyle(.secondary)
         }
     }
