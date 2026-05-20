@@ -24,7 +24,9 @@ final class SettingsWindowController {
         self.window = window
         NSApp.activate(ignoringOtherApps: true)
         window.center()
+        window.level = .floating
         window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 
     private func makeWindow() -> NSWindow {
@@ -36,6 +38,7 @@ final class SettingsWindowController {
         )
         window.title = "Translator Buddy Settings"
         window.isReleasedWhenClosed = false
+        window.level = .floating
         window.contentView = NSHostingView(
             rootView: SettingsView(
                 viewModel: viewModel,
