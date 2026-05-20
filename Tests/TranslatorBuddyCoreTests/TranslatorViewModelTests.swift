@@ -1,0 +1,150 @@
+import Foundation
+import XCTest
+@testable import TranslatorBuddyCore
+
+@MainActor
+final class TranslatorViewModelTests: XCTestCase {
+    func testBlankInputClearsResults() {
+        let viewModel = makeViewModel()
+
+        viewModel.sourceText = "hola"
+        viewModel.flushDebounceForTesting()
+        XCTAssertTrue(viewModel.results.allSatisfy { $0.status == .translating })
+
+        viewModel.sourceText = "   "
+
+        XCTAssertTrue(viewModel.pendingRequests.isEmpty)
+        XCTAssertEqual(viewModel.results.map(\.status), [.idle, .idle])
+    }
+
+    func testRapidTypingOnlyRunsFinalDebouncedRequest() {
+        let scheduler = ManualDebounceScheduler()
+        let viewModel = makeViewModel(scheduler: scheduler)
+
+        viewModel.sourceText = "h"
+        viewModel.sourceText = "ho"
+        viewModel.sourceText = "hola"
+
+        XCTAssertEqual(scheduler.scheduledCount, 3)
+        scheduler.runAll()
+
+        XCTAssertEqual(viewModel.pendingRequests.map(\.sourceText), ["hola", "hola"])
+        XCTAssertTrue(viewModel.results.allSatisfy { $0.status == .translating })
+    }
+
+    func testFailedTranslationUpdatesOnlyAffectedTarget() throws {
+        let viewModel = makeViewModel()
+        viewModel.sourceText = "hola"
+        viewModel.flushDebounceForTesting()
+
+        let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        let englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+        viewModel.fail(englishRequest, message: "No model installed.")
+
+        XCTAssertEqual(viewModel.results.first(where: { $0.target == .french })?.status, .translated("bonjour"))
+        XCTAssertEqual(viewModel.results.first(where: { $0.target == .english })?.status, .failed("No model installed."))
+    }
+
+    func testCompletedTranslationsAreSavedLocally() throws {
+        let viewModel = makeViewModel()
+        viewModel.sourceText = "hola"
+        viewModel.flushDebounceForTesting()
+
+        let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        let englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+        viewModel.complete(englishRequest, translatedText: "hello")
+
+        XCTAssertEqual(viewModel.savedTranslations.count, 1)
+        XCTAssertEqual(viewModel.savedTranslations[0].sourceText, "hola")
+        XCTAssertEqual(
+            viewModel.savedTranslations[0].outputs,
+            [
+                SavedTranslationOutput(target: .french, text: "bonjour"),
+                SavedTranslationOutput(target: .english, text: "hello")
+            ]
+        )
+    }
+
+    func testResetCurrentTranslationKeepsSavedTranslations() throws {
+        let viewModel = makeViewModel()
+        viewModel.sourceText = "hola"
+        viewModel.flushDebounceForTesting()
+
+        let request = try XCTUnwrap(viewModel.pendingRequests.first)
+        viewModel.complete(request, translatedText: "bonjour")
+        viewModel.resetCurrentTranslation()
+
+        XCTAssertEqual(viewModel.sourceText, "")
+        XCTAssertTrue(viewModel.pendingRequests.isEmpty)
+        XCTAssertFalse(viewModel.savedTranslations.isEmpty)
+        XCTAssertEqual(viewModel.results.map(\.status), [.idle, .idle])
+    }
+
+    func testClearSavedTranslationsRemovesHistory() throws {
+        let viewModel = makeViewModel()
+        viewModel.sourceText = "hola"
+        viewModel.flushDebounceForTesting()
+
+        let request = try XCTUnwrap(viewModel.pendingRequests.first)
+        viewModel.complete(request, translatedText: "bonjour")
+        viewModel.clearSavedTranslations()
+
+        XCTAssertTrue(viewModel.savedTranslations.isEmpty)
+    }
+
+    private func makeViewModel(
+        scheduler: DebounceScheduling = ManualDebounceScheduler()
+    ) -> TranslatorViewModel {
+        let defaults = MemoryDefaults()
+        return TranslatorViewModel(
+            settingsStore: LanguageSettingsStore(defaults: defaults),
+            historyStore: TranslationHistoryStore(defaults: defaults),
+            scheduler: scheduler,
+            debounceInterval: 0.35
+        )
+    }
+}
+
+final class ManualDebounceScheduler: DebounceScheduling, @unchecked Sendable {
+    private var entries: [Entry] = []
+
+    var scheduledCount: Int {
+        entries.count
+    }
+
+    func schedule(after interval: TimeInterval, operation: @escaping @MainActor @Sendable () -> Void) -> any CancellableTask {
+        let entry = Entry(operation: operation)
+        entries.append(entry)
+        return AnyCancellableTask {
+            entry.cancel()
+        }
+    }
+
+    @MainActor
+    func runAll() {
+        entries.forEach { $0.runIfActive() }
+    }
+
+    private final class Entry: @unchecked Sendable {
+        private var isCancelled = false
+        private let operation: @MainActor @Sendable () -> Void
+
+        init(operation: @escaping @MainActor @Sendable () -> Void) {
+            self.operation = operation
+        }
+
+        func cancel() {
+            isCancelled = true
+        }
+
+        @MainActor
+        func runIfActive() {
+            guard !isCancelled else { return }
+            operation()
+        }
+    }
+}
