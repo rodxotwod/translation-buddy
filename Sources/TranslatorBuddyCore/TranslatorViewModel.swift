@@ -147,6 +147,36 @@ public final class TranslatorViewModel: ObservableObject {
         historyStore.clear()
     }
 
+    public func restore(_ record: SavedTranslationRecord) {
+        pendingDebounce?.cancel()
+        pendingRequests = []
+        activeLanguage = visibleLanguages.first {
+            $0.languageIdentifier == record.sourceLanguageIdentifier
+        } ?? .spanish
+        sourceText = record.sourceLanguageIdentifier == Self.sourceLanguageIdentifier ? record.sourceText : ""
+
+        panels = panels.map { panel in
+            if panel.language.languageIdentifier == record.sourceLanguageIdentifier {
+                return LanguagePanelState(
+                    language: panel.language,
+                    text: record.sourceText,
+                    status: .idle
+                )
+            }
+
+            if let output = record.outputs.first(where: { $0.target.languageIdentifier == panel.language.languageIdentifier }) {
+                return LanguagePanelState(
+                    language: panel.language,
+                    text: output.text,
+                    status: .translated(output.text)
+                )
+            }
+
+            return LanguagePanelState(language: panel.language)
+        }
+        syncResultsFromPanels()
+    }
+
     public func clearResult(for target: TranslationTarget) {
         pendingRequests = pendingRequests.filter { $0.target.languageIdentifier != target.languageIdentifier }
         updatePanel(for: target, text: "", status: .idle)

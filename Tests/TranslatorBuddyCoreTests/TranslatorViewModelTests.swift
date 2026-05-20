@@ -135,6 +135,27 @@ final class TranslatorViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.text(for: .french), "bonjour")
     }
 
+    func testRestoringHistoryRecordFeedsVisiblePanels() {
+        let viewModel = makeViewModel()
+        let record = SavedTranslationRecord(
+            id: UUID(),
+            sourceText: "hello",
+            sourceLanguageIdentifier: "en",
+            outputs: [
+                SavedTranslationOutput(target: .spanish, text: "hola"),
+                SavedTranslationOutput(target: .french, text: "bonjour")
+            ]
+        )
+
+        viewModel.restore(record)
+
+        XCTAssertTrue(viewModel.pendingRequests.isEmpty)
+        XCTAssertEqual(viewModel.activeLanguage, .english)
+        XCTAssertEqual(viewModel.text(for: .english), "hello")
+        XCTAssertEqual(viewModel.text(for: .spanish), "hola")
+        XCTAssertEqual(viewModel.text(for: .french), "bonjour")
+    }
+
     private func makeViewModel(
         scheduler: DebounceScheduling = ManualDebounceScheduler()
     ) -> TranslatorViewModel {

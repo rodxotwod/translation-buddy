@@ -8,6 +8,7 @@ struct TranslatorPanelView: View {
     let onOpenSettings: () -> Void
 
     @FocusState private var focusedLanguageID: String?
+    @State private var historyExpanded = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,8 +28,18 @@ struct TranslatorPanelView: View {
                 Divider()
                 targetPanelsPane
             }
+            Divider()
+            HistoryDrawerView(
+                records: viewModel.savedTranslations,
+                isExpanded: $historyExpanded,
+                onRestore: { record in
+                    viewModel.restore(record)
+                    focusedLanguageID = viewModel.activeLanguage.id
+                },
+                onClear: viewModel.clearSavedTranslations
+            )
         }
-        .frame(minWidth: 680, minHeight: 480)
+        .frame(minWidth: 760, minHeight: 560)
         .background(.regularMaterial)
         .overlay(alignment: .bottomLeading) {
             NativeTranslationBridge(viewModel: viewModel)
@@ -101,12 +112,6 @@ struct TranslatorPanelView: View {
                     )
                 }
 
-                if !viewModel.savedTranslations.isEmpty {
-                    SavedTranslationsView(
-                        records: viewModel.savedTranslations,
-                        onClear: viewModel.clearSavedTranslations
-                    )
-                }
             }
             .padding(18)
         }
@@ -121,40 +126,102 @@ struct TranslatorPanelView: View {
     }
 }
 
-private struct SavedTranslationsView: View {
+private struct HistoryDrawerView: View {
     let records: [SavedTranslationRecord]
+    @Binding var isExpanded: Bool
+    let onRestore: (SavedTranslationRecord) -> Void
     let onClear: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 0) {
             HStack {
-                Text("Saved")
-                    .font(.subheadline.weight(.semibold))
-                Spacer()
-                Button(action: onClear) {
-                    Image(systemName: "trash")
+                Button {
+                    withAnimation(.snappy(duration: 0.18)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    Label("History", systemImage: isExpanded ? "chevron.down" : "chevron.right")
                 }
                 .buttonStyle(.borderless)
-                .help("Clear saved translations")
-            }
 
-            ForEach(records.prefix(5)) { record in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(record.sourceText)
-                        .font(.caption.weight(.semibold))
-                        .lineLimit(2)
-                    ForEach(record.outputs, id: \.target.id) { output in
-                        Text("\(output.target.displayName): \(output.text)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                Text("\(records.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                if !records.isEmpty {
+                    Button(action: onClear) {
+                        Image(systemName: "trash")
                     }
+                    .buttonStyle(.borderless)
+                    .help("Clear saved translations")
                 }
-                .padding(.vertical, 4)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+
+            if isExpanded {
+                if records.isEmpty {
+                    Text("No saved translations yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 12)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(records) { record in
+                                HistoryRecordRow(record: record) {
+                                    onRestore(record)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.bottom, 14)
+                    }
+                    .frame(maxHeight: 180)
+                }
             }
         }
-        .padding(14)
-        .background(.background.opacity(0.64), in: RoundedRectangle(cornerRadius: 8))
+        .background(.background.opacity(0.55))
+    }
+}
+
+private struct HistoryRecordRow: View {
+    let record: SavedTranslationRecord
+    let onRestore: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(record.sourceText)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(2)
+
+                Text(outputSummary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            Button(action: onRestore) {
+                Image(systemName: "arrow.down.left.and.arrow.up.right")
+            }
+            .buttonStyle(.borderless)
+            .help("Fill panels from this translation")
+        }
+        .padding(10)
+        .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var outputSummary: String {
+        record.outputs
+            .map { "\($0.target.displayName): \($0.text)" }
+            .joined(separator: " | ")
     }
 }
 
