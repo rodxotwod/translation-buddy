@@ -71,15 +71,6 @@ struct TranslatorPanelView: View {
 
             Spacer()
 
-            Button {
-                viewModel.resetCurrentTranslation()
-                focusedLanguageID = TranslationTarget.spanish.id
-            } label: {
-                Image(systemName: "plus.square")
-            }
-            .buttonStyle(.borderless)
-            .help("Start a new translation")
-
             Button(action: onOpenSettings) {
                 Image(systemName: "gearshape")
             }

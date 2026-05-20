@@ -36,14 +36,14 @@ final class FloatingPanelController {
     private func makePanel() -> SpotlightPanel {
         let panel = SpotlightPanel(
             contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
-            styleMask: [.titled, .fullSizeContentView],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
 
         panel.title = "Translator Buddy"
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .visible
+        panel.titlebarAppearsTransparent = false
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
         panel.level = .floating
