@@ -135,6 +135,41 @@ final class TranslatorViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.text(for: .french), "bonjour")
     }
 
+    func testCanSwitchMainLanguage() {
+        let viewModel = makeViewModel()
+
+        viewModel.setMainLanguage(.english)
+
+        XCTAssertEqual(viewModel.mainLanguage, .english)
+    }
+
+    func testSourcePanelShowsTranslatedWhenBatchCompletes() throws {
+        let viewModel = makeViewModel()
+        viewModel.setMainLanguage(.english)
+        viewModel.setText("hello", for: .english)
+        viewModel.flushDebounceForTesting()
+
+        let spanishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .spanish }))
+        let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        viewModel.complete(spanishRequest, translatedText: "hola")
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+
+        XCTAssertTrue(viewModel.pendingRequests.isEmpty)
+        XCTAssertEqual(
+            viewModel.panels.first(where: { $0.language == .english })?.status,
+            .translated("hello")
+        )
+    }
+
+    func testTonePreferenceIsStoredPerPanel() {
+        let viewModel = makeViewModel()
+
+        viewModel.setTone(.formal, for: .french)
+
+        XCTAssertEqual(viewModel.panels.first(where: { $0.language == .french })?.tone, .formal)
+        XCTAssertEqual(viewModel.panels.first(where: { $0.language == .english })?.tone, .automatic)
+    }
+
     func testRestoringHistoryRecordFeedsVisiblePanels() {
         let viewModel = makeViewModel()
         let record = SavedTranslationRecord(

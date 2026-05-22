@@ -7,6 +7,23 @@ public enum TranslationStatus: Equatable, Sendable {
     case failed(String)
 }
 
+public enum TranslationTone: String, CaseIterable, Codable, Equatable, Sendable {
+    case automatic
+    case formal
+    case informal
+
+    public var displayName: String {
+        switch self {
+        case .automatic:
+            "Auto"
+        case .formal:
+            "Formal"
+        case .informal:
+            "Informal"
+        }
+    }
+}
+
 public struct TranslationResult: Identifiable, Equatable, Sendable {
     public let id: String
     public let target: TranslationTarget
@@ -24,12 +41,19 @@ public struct LanguagePanelState: Identifiable, Equatable, Sendable {
     public let language: TranslationTarget
     public var text: String
     public var status: TranslationStatus
+    public var tone: TranslationTone
 
-    public init(language: TranslationTarget, text: String = "", status: TranslationStatus = .idle) {
+    public init(
+        language: TranslationTarget,
+        text: String = "",
+        status: TranslationStatus = .idle,
+        tone: TranslationTone = .automatic
+    ) {
         self.id = language.id
         self.language = language
         self.text = text
         self.status = status
+        self.tone = tone
     }
 }
 

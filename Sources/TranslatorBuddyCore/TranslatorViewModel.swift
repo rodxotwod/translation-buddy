@@ -43,6 +43,7 @@ public final class TranslatorViewModel: ObservableObject {
 
     @Published public private(set) var sourceText: String = ""
     @Published public private(set) var activeLanguage: TranslationTarget = .spanish
+    @Published public private(set) var mainLanguage: TranslationTarget = .spanish
     @Published public private(set) var targets: [TranslationTarget]
     @Published public private(set) var panels: [LanguagePanelState]
     @Published public private(set) var results: [TranslationResult]
@@ -123,11 +124,14 @@ public final class TranslatorViewModel: ObservableObject {
         guard isCurrent(request) else { return }
         updatePanel(for: request.target, text: translatedText, status: .translated(translatedText))
         saveCurrentTranslation(for: request)
+        pendingRequests.removeAll { $0.id == request.id }
+        markSourceCompleteIfFinished(request)
     }
 
     public func fail(_ request: TranslationRequest, message: String) {
         guard isCurrent(request) else { return }
         updatePanel(for: request.target, status: .failed(message))
+        pendingRequests.removeAll { $0.id == request.id }
     }
 
     public func clearSettingsError() {
@@ -180,6 +184,29 @@ public final class TranslatorViewModel: ObservableObject {
     public func clearResult(for target: TranslationTarget) {
         pendingRequests = pendingRequests.filter { $0.target.languageIdentifier != target.languageIdentifier }
         updatePanel(for: target, text: "", status: .idle)
+    }
+
+    public func setMainLanguage(_ language: TranslationTarget) {
+        guard visibleLanguages.contains(where: { $0.languageIdentifier == language.languageIdentifier }) else {
+            return
+        }
+
+        mainLanguage = language
+    }
+
+    public func setTone(_ tone: TranslationTone, for language: TranslationTarget) {
+        panels = panels.map { panel in
+            guard panel.language.languageIdentifier == language.languageIdentifier else {
+                return panel
+            }
+
+            return LanguagePanelState(
+                language: panel.language,
+                text: panel.text,
+                status: panel.status,
+                tone: tone
+            )
+        }
     }
 
     public func text(for language: TranslationTarget) -> String {
@@ -261,6 +288,9 @@ public final class TranslatorViewModel: ObservableObject {
         if !visibleLanguages.contains(where: { $0.languageIdentifier == activeLanguage.languageIdentifier }) {
             activeLanguage = .spanish
         }
+        if !visibleLanguages.contains(where: { $0.languageIdentifier == mainLanguage.languageIdentifier }) {
+            mainLanguage = .spanish
+        }
         lastSettingsError = nil
         syncResultsFromPanels()
         scheduleTranslation(from: activeLanguage)
@@ -283,7 +313,8 @@ public final class TranslatorViewModel: ObservableObject {
             return LanguagePanelState(
                 language: panel.language,
                 text: text ?? panel.text,
-                status: status
+                status: status,
+                tone: panel.tone
             )
         }
 
@@ -328,5 +359,20 @@ public final class TranslatorViewModel: ObservableObject {
         )
         savedTranslations = historyStore.upsert(record, into: savedTranslations)
         historyStore.saveRecords(savedTranslations)
+    }
+
+    private func markSourceCompleteIfFinished(_ request: TranslationRequest) {
+        guard !pendingRequests.contains(where: { $0.batchID == request.batchID }) else {
+            return
+        }
+
+        guard
+            let sourceLanguage = visibleLanguages.first(where: { $0.languageIdentifier == request.sourceLanguageIdentifier }),
+            !request.sourceText.isEmpty
+        else {
+            return
+        }
+
+        updatePanel(for: sourceLanguage, text: request.sourceText, status: .translated(request.sourceText))
     }
 }

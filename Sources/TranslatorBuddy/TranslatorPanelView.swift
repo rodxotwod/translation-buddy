@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import Translation
 import TranslatorBuddyCore
@@ -15,12 +16,16 @@ struct TranslatorPanelView: View {
             header
             Divider()
             HStack(spacing: 0) {
-                if let spanishPanel {
+                if let mainPanel {
                     LanguagePanelCard(
-                        panel: spanishPanel,
-                        text: binding(for: spanishPanel.language),
+                        panel: mainPanel,
+                        text: binding(for: mainPanel.language),
                         isFocused: $focusedLanguageID,
-                        onClear: { viewModel.clearResult(for: spanishPanel.language) }
+                        isMain: true,
+                        onMakeMain: { viewModel.setMainLanguage(mainPanel.language) },
+                        onCopy: { copyText(mainPanel.text) },
+                        onClear: { viewModel.clearResult(for: mainPanel.language) },
+                        onToneChange: { viewModel.setTone($0, for: mainPanel.language) }
                     )
                     .padding(18)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -87,19 +92,23 @@ struct TranslatorPanelView: View {
         .padding(.vertical, 14)
     }
 
-    private var spanishPanel: LanguagePanelState? {
-        viewModel.panels.first { $0.language == .spanish }
+    private var mainPanel: LanguagePanelState? {
+        viewModel.panels.first { $0.language == viewModel.mainLanguage }
     }
 
     private var targetPanelsPane: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                ForEach(viewModel.panels.filter { $0.language != .spanish }) { panel in
+                ForEach(viewModel.panels.filter { $0.language != viewModel.mainLanguage }) { panel in
                     LanguagePanelCard(
                         panel: panel,
                         text: binding(for: panel.language),
                         isFocused: $focusedLanguageID,
-                        onClear: { viewModel.clearResult(for: panel.language) }
+                        isMain: false,
+                        onMakeMain: { viewModel.setMainLanguage(panel.language) },
+                        onCopy: { copyText(panel.text) },
+                        onClear: { viewModel.clearResult(for: panel.language) },
+                        onToneChange: { viewModel.setTone($0, for: panel.language) }
                     )
                 }
 
@@ -114,6 +123,11 @@ struct TranslatorPanelView: View {
             get: { viewModel.text(for: language) },
             set: { viewModel.setText($0, for: language) }
         )
+    }
+
+    private func copyText(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
@@ -185,16 +199,16 @@ private struct HistoryRecordRow: View {
     let onRestore: () -> Void
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 5) {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(record.sourceText)
                     .font(.caption.weight(.semibold))
-                    .lineLimit(2)
+                    .lineLimit(1)
 
-                Text(outputSummary)
+                Text(summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 8)
@@ -209,10 +223,9 @@ private struct HistoryRecordRow: View {
         .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 8))
     }
 
-    private var outputSummary: String {
-        record.outputs
-            .map { "\($0.target.displayName): \($0.text)" }
-            .joined(separator: " | ")
+    private var summary: String {
+        let targets = record.outputs.map(\.target.displayName).joined(separator: ", ")
+        return "\(record.sourceLanguageIdentifier.uppercased()) -> \(targets)"
     }
 }
 
@@ -220,7 +233,11 @@ private struct LanguagePanelCard: View {
     let panel: LanguagePanelState
     @Binding var text: String
     var isFocused: FocusState<String?>.Binding
+    let isMain: Bool
+    let onMakeMain: () -> Void
+    let onCopy: () -> Void
     let onClear: () -> Void
+    let onToneChange: (TranslationTone) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -228,6 +245,30 @@ private struct LanguagePanelCard: View {
                 Text(panel.language.displayName)
                     .font(.subheadline.weight(.semibold))
                 Spacer()
+                Picker("Tone", selection: toneBinding) {
+                    ForEach(TranslationTone.allCases, id: \.self) { tone in
+                        Text(tone.displayName).tag(tone)
+                    }
+                }
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(width: 92)
+                .help("Apple local translation does not expose tone control; this preference is saved for a future provider.")
+
+                Button(action: onMakeMain) {
+                    Image(systemName: isMain ? "rectangle.fill" : "rectangle")
+                }
+                .buttonStyle(.borderless)
+                .disabled(isMain)
+                .help(isMain ? "Main panel" : "Make main panel")
+
+                Button(action: onCopy) {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.borderless)
+                .disabled(text.isEmpty)
+                .help("Copy \(panel.language.displayName)")
+
                 if panel.status != .idle || !text.isEmpty {
                     Button(action: onClear) {
                         Image(systemName: "xmark.circle")
@@ -259,6 +300,13 @@ private struct LanguagePanelCard: View {
         }
         .padding(14)
         .background(.background.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var toneBinding: Binding<TranslationTone> {
+        Binding(
+            get: { panel.tone },
+            set: { tone in onToneChange(tone) }
+        )
     }
 
     @ViewBuilder
