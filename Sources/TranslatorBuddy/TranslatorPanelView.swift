@@ -24,8 +24,7 @@ struct TranslatorPanelView: View {
                         isMain: true,
                         onMakeMain: { viewModel.setMainLanguage(mainPanel.language) },
                         onCopy: { copyText(mainPanel.text) },
-                        onClear: { viewModel.clearResult(for: mainPanel.language) },
-                        onToneChange: { viewModel.setTone($0, for: mainPanel.language) }
+                        onClear: { viewModel.clearResult(for: mainPanel.language) }
                     )
                     .padding(18)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -62,15 +61,13 @@ struct TranslatorPanelView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image("translator-buddy-icon-master", bundle: .module)
+            Image("translator-buddy-logo", bundle: .module)
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 34, height: 34)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .scaledToFit()
+                .frame(width: 180, height: 46, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Translator Buddy")
-                    .font(.headline)
                 Text(viewModel.panels.map(\.language.displayName).joined(separator: " + "))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -109,8 +106,7 @@ struct TranslatorPanelView: View {
                         isMain: false,
                         onMakeMain: { viewModel.setMainLanguage(panel.language) },
                         onCopy: { copyText(panel.text) },
-                        onClear: { viewModel.clearResult(for: panel.language) },
-                        onToneChange: { viewModel.setTone($0, for: panel.language) }
+                        onClear: { viewModel.clearResult(for: panel.language) }
                     )
                 }
 
@@ -239,7 +235,6 @@ private struct LanguagePanelCard: View {
     let onMakeMain: () -> Void
     let onCopy: () -> Void
     let onClear: () -> Void
-    let onToneChange: (TranslationTone) -> Void
     @State private var didCopy = false
 
     var body: some View {
@@ -248,29 +243,25 @@ private struct LanguagePanelCard: View {
                 Text(panel.language.displayName)
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                Picker("Tone", selection: toneBinding) {
-                    ForEach(TranslationTone.allCases, id: \.self) { tone in
-                        Text(tone.displayName).tag(tone)
-                    }
-                }
-                .labelsHidden()
-                .controlSize(.small)
-                .frame(width: 92)
-                .help("Apple local translation does not expose tone control; this preference is saved for a future provider.")
 
-                Button(action: onMakeMain) {
-                    Image(systemName: isMain ? "pin.square.fill" : "pin.square")
+                if !isMain {
+                    Button(action: onMakeMain) {
+                        Image(systemName: "arrow.up.left.square")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Make active panel")
                 }
-                .buttonStyle(.borderless)
-                .disabled(isMain)
-                .help(isMain ? "Main panel" : "Make main panel")
 
                 Button {
                     onCopy()
                     showCopiedFeedback()
                 } label: {
-                    Image(systemName: didCopy ? "checkmark.circle.fill" : "doc.on.doc")
-                        .foregroundStyle(didCopy ? .green : .primary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc")
+                        if didCopy {
+                            Image(systemName: "checkmark")
+                        }
+                    }
                 }
                 .buttonStyle(.borderless)
                 .disabled(text.isEmpty)
@@ -307,13 +298,6 @@ private struct LanguagePanelCard: View {
         }
         .padding(14)
         .background(.background.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
-    }
-
-    private var toneBinding: Binding<TranslationTone> {
-        Binding(
-            get: { panel.tone },
-            set: { tone in onToneChange(tone) }
-        )
     }
 
     private func showCopiedFeedback() {
