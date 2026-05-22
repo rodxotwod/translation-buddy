@@ -62,7 +62,7 @@ struct TranslatorPanelView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image("translator-buddy-icon-master")
+            Image("translator-buddy-icon-master", bundle: .module)
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 34, height: 34)
