@@ -26,6 +26,10 @@ if [[ -f "$ROOT_DIR/Assets/AppIcon/TranslatorBuddy.icns" ]]; then
     cp "$ROOT_DIR/Assets/AppIcon/TranslatorBuddy.icns" "$APP_PATH/Contents/Resources/TranslatorBuddy.icns"
 fi
 
+if [[ -f "$ROOT_DIR/Assets/Brand/translator-buddy-logo.png" ]]; then
+    cp "$ROOT_DIR/Assets/Brand/translator-buddy-logo.png" "$APP_PATH/Contents/Resources/translator-buddy-logo.png"
+fi
+
 cat > "$APP_PATH/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

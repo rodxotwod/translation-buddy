@@ -16,6 +16,9 @@ let package = Package(
         .executableTarget(
             name: "TranslatorBuddy",
             dependencies: ["TranslatorBuddyCore"],
+            resources: [
+                .process("Resources")
+            ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("Carbon"),

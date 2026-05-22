@@ -62,9 +62,11 @@ struct TranslatorPanelView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image(systemName: "bubble.left.and.text.bubble.right")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.blue)
+            Image("translator-buddy-icon-master")
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 34, height: 34)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Translator Buddy")
@@ -238,6 +240,7 @@ private struct LanguagePanelCard: View {
     let onCopy: () -> Void
     let onClear: () -> Void
     let onToneChange: (TranslationTone) -> Void
+    @State private var didCopy = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -256,14 +259,18 @@ private struct LanguagePanelCard: View {
                 .help("Apple local translation does not expose tone control; this preference is saved for a future provider.")
 
                 Button(action: onMakeMain) {
-                    Image(systemName: isMain ? "rectangle.fill" : "rectangle")
+                    Image(systemName: isMain ? "pin.square.fill" : "pin.square")
                 }
                 .buttonStyle(.borderless)
                 .disabled(isMain)
                 .help(isMain ? "Main panel" : "Make main panel")
 
-                Button(action: onCopy) {
-                    Image(systemName: "doc.on.doc")
+                Button {
+                    onCopy()
+                    showCopiedFeedback()
+                } label: {
+                    Image(systemName: didCopy ? "checkmark.circle.fill" : "doc.on.doc")
+                        .foregroundStyle(didCopy ? .green : .primary)
                 }
                 .buttonStyle(.borderless)
                 .disabled(text.isEmpty)
@@ -307,6 +314,14 @@ private struct LanguagePanelCard: View {
             get: { panel.tone },
             set: { tone in onToneChange(tone) }
         )
+    }
+
+    private func showCopiedFeedback() {
+        didCopy = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            didCopy = false
+        }
     }
 
     @ViewBuilder
