@@ -57,6 +57,8 @@ final class TranslatorViewModelTests: XCTestCase {
         let englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
 
         viewModel.complete(frenchRequest, translatedText: "bonjour")
+        XCTAssertTrue(viewModel.savedTranslations.isEmpty)
+
         viewModel.complete(englishRequest, translatedText: "hello")
 
         XCTAssertEqual(viewModel.savedTranslations.count, 1)
@@ -75,8 +77,10 @@ final class TranslatorViewModelTests: XCTestCase {
         viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
 
-        let request = try XCTUnwrap(viewModel.pendingRequests.first)
-        viewModel.complete(request, translatedText: "bonjour")
+        let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        let englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+        viewModel.complete(englishRequest, translatedText: "hello")
         viewModel.resetCurrentTranslation()
 
         XCTAssertEqual(viewModel.sourceText, "")
@@ -90,8 +94,10 @@ final class TranslatorViewModelTests: XCTestCase {
         viewModel.setText("hola", for: .spanish)
         viewModel.flushDebounceForTesting()
 
-        let request = try XCTUnwrap(viewModel.pendingRequests.first)
-        viewModel.complete(request, translatedText: "bonjour")
+        let frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        let englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+        viewModel.complete(englishRequest, translatedText: "hello")
         viewModel.clearSavedTranslations()
 
         XCTAssertTrue(viewModel.savedTranslations.isEmpty)
@@ -158,6 +164,34 @@ final class TranslatorViewModelTests: XCTestCase {
         XCTAssertEqual(
             viewModel.panels.first(where: { $0.language == .english })?.status,
             .translated("hello")
+        )
+    }
+
+    func testSamePhraseOnlyCreatesOneHistoryRecord() throws {
+        let viewModel = makeViewModel()
+
+        viewModel.setText("hola", for: .spanish)
+        viewModel.flushDebounceForTesting()
+        var frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        var englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+        viewModel.complete(frenchRequest, translatedText: "bonjour")
+        viewModel.complete(englishRequest, translatedText: "hello")
+
+        viewModel.setText("  HOLA  ", for: .spanish)
+        viewModel.flushDebounceForTesting()
+        frenchRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .french }))
+        englishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+        viewModel.complete(frenchRequest, translatedText: "salut")
+        viewModel.complete(englishRequest, translatedText: "hi")
+
+        XCTAssertEqual(viewModel.savedTranslations.count, 1)
+        XCTAssertEqual(viewModel.savedTranslations[0].sourceText, "HOLA")
+        XCTAssertEqual(
+            viewModel.savedTranslations[0].outputs,
+            [
+                SavedTranslationOutput(target: .french, text: "salut"),
+                SavedTranslationOutput(target: .english, text: "hi")
+            ]
         )
     }
 

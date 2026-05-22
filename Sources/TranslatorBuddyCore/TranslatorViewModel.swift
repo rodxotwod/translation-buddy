@@ -123,7 +123,6 @@ public final class TranslatorViewModel: ObservableObject {
     public func complete(_ request: TranslationRequest, translatedText: String) {
         guard isCurrent(request) else { return }
         updatePanel(for: request.target, text: translatedText, status: .translated(translatedText))
-        saveCurrentTranslation(for: request)
         pendingRequests.removeAll { $0.id == request.id }
         markSourceCompleteIfFinished(request)
     }
@@ -336,7 +335,7 @@ public final class TranslatorViewModel: ObservableObject {
         pendingRequests.contains(request)
     }
 
-    private func saveCurrentTranslation(for request: TranslationRequest) {
+    private func saveCompletedTranslation(for request: TranslationRequest) {
         let outputs = panels.compactMap { panel -> SavedTranslationOutput? in
             guard
                 panel.language.languageIdentifier != request.sourceLanguageIdentifier,
@@ -349,7 +348,7 @@ public final class TranslatorViewModel: ObservableObject {
             return SavedTranslationOutput(target: panel.language, text: panel.text)
         }
 
-        guard !outputs.isEmpty else { return }
+        guard outputs.count == visibleLanguages.count - 1 else { return }
 
         let record = SavedTranslationRecord(
             id: request.batchID,
@@ -357,8 +356,20 @@ public final class TranslatorViewModel: ObservableObject {
             sourceLanguageIdentifier: request.sourceLanguageIdentifier,
             outputs: outputs
         )
-        savedTranslations = historyStore.upsert(record, into: savedTranslations)
+        savedTranslations = [record] + savedTranslations.filter { !isSameHistoryPhrase($0, record) }
         historyStore.saveRecords(savedTranslations)
+    }
+
+    private func isSameHistoryPhrase(_ lhs: SavedTranslationRecord, _ rhs: SavedTranslationRecord) -> Bool {
+        lhs.sourceLanguageIdentifier == rhs.sourceLanguageIdentifier
+            && normalizedHistoryText(lhs.sourceText) == normalizedHistoryText(rhs.sourceText)
+    }
+
+    private func normalizedHistoryText(_ text: String) -> String {
+        text
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
     private func markSourceCompleteIfFinished(_ request: TranslationRequest) {
@@ -374,5 +385,6 @@ public final class TranslatorViewModel: ObservableObject {
         }
 
         updatePanel(for: sourceLanguage, text: request.sourceText, status: .translated(request.sourceText))
+        saveCompletedTranslation(for: request)
     }
 }
