@@ -61,13 +61,16 @@ struct TranslatorPanelView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image("translator-buddy-logo", bundle: .module)
+            Image("translator-buddy-icon-master", bundle: .module)
                 .resizable()
                 .interpolation(.high)
-                .scaledToFit()
-                .frame(width: 180, height: 46, alignment: .leading)
+                .frame(width: 40, height: 40)
+                .clipShape(RoundedRectangle(cornerRadius: 9))
 
             VStack(alignment: .leading, spacing: 1) {
+                Text("Translator Buddy")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                 Text(viewModel.panels.map(\.language.displayName).joined(separator: " + "))
                     .font(.caption)
                     .foregroundStyle(.secondary)

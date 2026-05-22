@@ -59,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = AppServices.shared.panelController
         _ = AppServices.shared.settingsWindowController
         AppServices.shared.hotkeyController.register()
+        AppServices.shared.panelController.show()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
