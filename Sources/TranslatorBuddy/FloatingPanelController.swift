@@ -56,6 +56,8 @@ final class FloatingPanelController {
         panel.titlebarAppearsTransparent = false
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.canHide = false
         panel.animationBehavior = .utilityWindow
         panel.onCancel = { [weak self] in self?.hide() }
         panel.contentView = NSHostingView(
@@ -83,6 +85,9 @@ final class FloatingPanelController {
         if windowSettingsStore.keepsWindowAboveOtherApps {
             panel.level = .statusBar
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+            if panel.isVisible {
+                panel.orderFrontRegardless()
+            }
         } else {
             panel.level = .floating
             panel.collectionBehavior = [.transient, .ignoresCycle]

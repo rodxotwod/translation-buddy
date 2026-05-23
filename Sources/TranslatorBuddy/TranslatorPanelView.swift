@@ -10,39 +10,29 @@ struct TranslatorPanelView: View {
     let onOpenSettings: () -> Void
 
     @FocusState private var focusedLanguageID: String?
-    @State private var historyExpanded = false
+    @State private var displayMode: DisplayMode = .translation
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            HStack(spacing: 0) {
-                if let mainPanel {
-                    LanguagePanelCard(
-                        panel: mainPanel,
-                        text: binding(for: mainPanel.language),
-                        isFocused: $focusedLanguageID,
-                        isMain: true,
-                        onMakeMain: { viewModel.setMainLanguage(mainPanel.language) },
-                        onCopy: { copyText(mainPanel.text) },
-                        onClear: { viewModel.clearResult(for: mainPanel.language) }
+            Group {
+                switch displayMode {
+                case .translation:
+                    translationWorkspace
+                case .history:
+                    HistoryView(
+                        records: viewModel.savedTranslations,
+                        onRestore: { record in
+                            viewModel.restore(record)
+                            displayMode = .translation
+                            focusedLanguageID = viewModel.activeLanguage.id
+                        },
+                        onClear: viewModel.clearSavedTranslations
                     )
-                    .padding(18)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                Divider()
-                targetPanelsPane
             }
-            Divider()
-            HistoryDrawerView(
-                records: viewModel.savedTranslations,
-                isExpanded: $historyExpanded,
-                onRestore: { record in
-                    viewModel.restore(record)
-                    focusedLanguageID = viewModel.activeLanguage.id
-                },
-                onClear: viewModel.clearSavedTranslations
-            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 760, minHeight: 560)
         .background(.regularMaterial)
@@ -79,6 +69,21 @@ struct TranslatorPanelView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                displayMode = displayMode == .history ? .translation : .history
+            } label: {
+                Image(systemName: displayMode == .history ? "text.bubble.fill" : "clock.arrow.circlepath")
+                    .font(.system(size: 16, weight: .medium))
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(displayMode == .history ? .primary : .secondary)
+            .background(
+                displayMode == .history ? Color.accentColor.opacity(0.14) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
+            .help(displayMode == .history ? "Show translations" : "Show history")
 
             Button {
                 windowSettingsStore.keepsWindowAboveOtherApps.toggle()
@@ -122,6 +127,26 @@ struct TranslatorPanelView: View {
         .background(.thinMaterial)
     }
 
+    private var translationWorkspace: some View {
+        HStack(spacing: 0) {
+            if let mainPanel {
+                LanguagePanelCard(
+                    panel: mainPanel,
+                    text: binding(for: mainPanel.language),
+                    isFocused: $focusedLanguageID,
+                    isMain: true,
+                    onMakeMain: { viewModel.setMainLanguage(mainPanel.language) },
+                    onCopy: { copyText(mainPanel.text) },
+                    onClear: { viewModel.clearResult(for: mainPanel.language) }
+                )
+                .padding(18)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            Divider()
+            targetPanelsPane
+        }
+    }
+
     private var mainPanel: LanguagePanelState? {
         viewModel.panels.first { $0.language == viewModel.mainLanguage }
     }
@@ -160,27 +185,27 @@ struct TranslatorPanelView: View {
     }
 }
 
-private struct HistoryDrawerView: View {
+private enum DisplayMode {
+    case translation
+    case history
+}
+
+private struct HistoryView: View {
     let records: [SavedTranslationRecord]
-    @Binding var isExpanded: Bool
     let onRestore: (SavedTranslationRecord) -> Void
     let onClear: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Button {
-                    withAnimation(.snappy(duration: 0.18)) {
-                        isExpanded.toggle()
-                    }
-                } label: {
-                    Label("History", systemImage: isExpanded ? "chevron.down" : "chevron.right")
-                }
-                .buttonStyle(.borderless)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("History")
+                        .font(.title3.weight(.semibold))
 
-                Text("\(records.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text("\(records.count) saved \(records.count == 1 ? "translation" : "translations")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
@@ -192,34 +217,32 @@ private struct HistoryDrawerView: View {
                     .help("Clear saved translations")
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
 
-            if isExpanded {
-                if records.isEmpty {
+            if records.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundStyle(.tertiary)
+
                     Text("No saved translations yet.")
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, 12)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(records) { record in
-                                HistoryRecordRow(record: record) {
-                                    onRestore(record)
-                                }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(records) { record in
+                            HistoryRecordRow(record: record) {
+                                onRestore(record)
                             }
                         }
-                        .padding(.horizontal, 18)
-                        .padding(.bottom, 14)
                     }
-                    .frame(maxHeight: 180)
                 }
             }
         }
-        .background(.background.opacity(0.55))
+        .padding(22)
+        .background(.regularMaterial)
     }
 }
 
