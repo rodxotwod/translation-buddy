@@ -214,6 +214,7 @@ public final class TranslatorViewModel: ObservableObject {
 
     public func setText(_ text: String, for language: TranslationTarget) {
         pendingDebounce?.cancel()
+        pendingRequests = []
         activeLanguage = language
         updatePanel(for: language, text: text, status: .idle)
 

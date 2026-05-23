@@ -141,6 +141,20 @@ final class TranslatorViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.text(for: .french), "bonjour")
     }
 
+    func testTypingInPanelInvalidatesOlderTranslationResults() throws {
+        let viewModel = makeViewModel()
+
+        viewModel.setText("hola", for: .spanish)
+        viewModel.flushDebounceForTesting()
+        let oldEnglishRequest = try XCTUnwrap(viewModel.pendingRequests.first(where: { $0.target == .english }))
+
+        viewModel.setText("typing new text", for: .english)
+        viewModel.complete(oldEnglishRequest, translatedText: "old hello")
+
+        XCTAssertEqual(viewModel.text(for: .english), "typing new text")
+        XCTAssertEqual(viewModel.pendingRequests.count, 0)
+    }
+
     func testCanSwitchMainLanguage() {
         let viewModel = makeViewModel()
 

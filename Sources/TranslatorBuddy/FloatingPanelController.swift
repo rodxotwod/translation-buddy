@@ -56,8 +56,6 @@ final class FloatingPanelController {
         panel.titlebarAppearsTransparent = false
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
-        panel.hidesOnDeactivate = false
-        panel.canHide = false
         panel.animationBehavior = .utilityWindow
         panel.onCancel = { [weak self] in self?.hide() }
         panel.contentView = NSHostingView(
@@ -84,12 +82,16 @@ final class FloatingPanelController {
     private func applyWindowLevel(to panel: NSPanel) {
         if windowSettingsStore.keepsWindowAboveOtherApps {
             panel.level = .statusBar
+            panel.hidesOnDeactivate = false
+            panel.canHide = false
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
             if panel.isVisible {
                 panel.orderFrontRegardless()
             }
         } else {
-            panel.level = .floating
+            panel.level = .normal
+            panel.hidesOnDeactivate = true
+            panel.canHide = true
             panel.collectionBehavior = [.transient, .ignoresCycle]
         }
     }
