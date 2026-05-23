@@ -23,6 +23,7 @@ final class AppServices {
 
     let viewModel = TranslatorViewModel()
     let shortcutStore = ShortcutSettingsStore()
+    let windowSettingsStore = WindowSettingsStore()
     lazy var hotkeyController = HotkeyController(shortcutStore: shortcutStore) { [weak self] in
         Task { @MainActor in
             self?.togglePanel()
@@ -35,6 +36,7 @@ final class AppServices {
     )
     lazy var panelController = FloatingPanelController(
         viewModel: viewModel,
+        windowSettingsStore: windowSettingsStore,
         onOpenSettings: { AppServices.shared.openSettings() }
     )
 
@@ -53,16 +55,30 @@ final class AppServices {
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         _ = AppServices.shared.panelController
         _ = AppServices.shared.settingsWindowController
         AppServices.shared.hotkeyController.register()
+        configureApplicationIcon()
         AppServices.shared.panelController.show()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         AppServices.shared.hotkeyController.unregister()
+    }
+
+    private func configureApplicationIcon() {
+        let resourceName = "translator-buddy-mark-v2"
+        guard
+            let url = Bundle.module.url(forResource: resourceName, withExtension: "png"),
+            let image = NSImage(contentsOf: url)
+        else {
+            return
+        }
+
+        NSApp.applicationIconImage = image
     }
 }

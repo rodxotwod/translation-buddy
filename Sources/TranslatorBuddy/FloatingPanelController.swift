@@ -5,12 +5,21 @@ import TranslatorBuddyCore
 @MainActor
 final class FloatingPanelController {
     private let viewModel: TranslatorViewModel
+    private let windowSettingsStore: WindowSettingsStore
     private let onOpenSettings: () -> Void
     private var panel: SpotlightPanel?
 
-    init(viewModel: TranslatorViewModel, onOpenSettings: @escaping () -> Void) {
+    init(
+        viewModel: TranslatorViewModel,
+        windowSettingsStore: WindowSettingsStore,
+        onOpenSettings: @escaping () -> Void
+    ) {
         self.viewModel = viewModel
+        self.windowSettingsStore = windowSettingsStore
         self.onOpenSettings = onOpenSettings
+        self.windowSettingsStore.onKeepAboveOtherAppsChanged = { [weak self] _ in
+            self?.applyWindowLevel()
+        }
     }
 
     func toggle() {
@@ -24,6 +33,7 @@ final class FloatingPanelController {
     func show() {
         let panel = panel ?? makePanel()
         self.panel = panel
+        applyWindowLevel()
         center(panel)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
@@ -46,19 +56,37 @@ final class FloatingPanelController {
         panel.titlebarAppearsTransparent = false
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
-        panel.level = .floating
-        panel.collectionBehavior = [.transient, .ignoresCycle]
         panel.animationBehavior = .utilityWindow
         panel.onCancel = { [weak self] in self?.hide() }
         panel.contentView = NSHostingView(
             rootView: TranslatorPanelView(
                 viewModel: viewModel,
+                windowSettingsStore: windowSettingsStore,
                 onClose: { [weak self] in self?.hide() },
                 onOpenSettings: onOpenSettings
             )
         )
+        applyWindowLevel(to: panel)
 
         return panel
+    }
+
+    private func applyWindowLevel() {
+        guard let panel else {
+            return
+        }
+
+        applyWindowLevel(to: panel)
+    }
+
+    private func applyWindowLevel(to panel: NSPanel) {
+        if windowSettingsStore.keepsWindowAboveOtherApps {
+            panel.level = .statusBar
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        } else {
+            panel.level = .floating
+            panel.collectionBehavior = [.transient, .ignoresCycle]
+        }
     }
 
     private func center(_ panel: NSPanel) {

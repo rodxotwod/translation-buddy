@@ -5,6 +5,7 @@ import TranslatorBuddyCore
 
 struct TranslatorPanelView: View {
     @ObservedObject var viewModel: TranslatorViewModel
+    @ObservedObject var windowSettingsStore: WindowSettingsStore
     let onClose: () -> Void
     let onOpenSettings: () -> Void
 
@@ -78,6 +79,25 @@ struct TranslatorPanelView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                windowSettingsStore.keepsWindowAboveOtherApps.toggle()
+            } label: {
+                Image(systemName: windowSettingsStore.keepsWindowAboveOtherApps ? "pin.fill" : "pin")
+                    .font(.system(size: 16, weight: .medium))
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(windowSettingsStore.keepsWindowAboveOtherApps ? .primary : .secondary)
+            .background(
+                windowSettingsStore.keepsWindowAboveOtherApps ? Color.accentColor.opacity(0.14) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+            )
+            .help(
+                windowSettingsStore.keepsWindowAboveOtherApps
+                    ? "Window stays above other apps"
+                    : "Keep window above other apps"
+            )
 
             Button(action: onOpenSettings) {
                 Image(systemName: "gearshape")
