@@ -34,7 +34,7 @@ struct TranslatorPanelView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 760, minHeight: 560)
+        .frame(minWidth: 720, idealWidth: 860, minHeight: 500, idealHeight: 620)
         .background(.regularMaterial)
         .overlay(alignment: .bottomLeading) {
             NativeTranslationBridge(viewModel: viewModel)
@@ -152,22 +152,32 @@ struct TranslatorPanelView: View {
     }
 
     private var targetPanelsPane: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(viewModel.panels.filter { $0.language != viewModel.mainLanguage }) { panel in
-                    LanguagePanelCard(
-                        panel: panel,
-                        text: binding(for: panel.language),
-                        isFocused: $focusedLanguageID,
-                        isMain: false,
-                        onMakeMain: { viewModel.setMainLanguage(panel.language) },
-                        onCopy: { copyText(panel.text) },
-                        onClear: { viewModel.clearResult(for: panel.language) }
-                    )
-                }
+        let sidePanels = viewModel.panels.filter { $0.language != viewModel.mainLanguage }
 
+        return GeometryReader { geometry in
+            let padding: CGFloat = 18
+            let spacing: CGFloat = 12
+            let availableHeight = max(0, geometry.size.height - padding * 2 - spacing * CGFloat(max(0, sidePanels.count - 1)))
+            let panelHeight = sidePanels.isEmpty ? 0 : max(170, availableHeight / CGFloat(sidePanels.count))
+
+            ScrollView {
+                LazyVStack(spacing: spacing) {
+                    ForEach(sidePanels) { panel in
+                        LanguagePanelCard(
+                            panel: panel,
+                            text: binding(for: panel.language),
+                            isFocused: $focusedLanguageID,
+                            isMain: false,
+                            onMakeMain: { viewModel.setMainLanguage(panel.language) },
+                            onCopy: { copyText(panel.text) },
+                            onClear: { viewModel.clearResult(for: panel.language) }
+                        )
+                        .frame(minHeight: panelHeight)
+                    }
+                }
+                .padding(padding)
+                .frame(minHeight: geometry.size.height, alignment: .top)
             }
-            .padding(18)
         }
         .frame(width: 330)
     }
@@ -341,12 +351,8 @@ private struct LanguagePanelCard: View {
                     onCopy()
                     showCopiedFeedback()
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc")
-                        if didCopy {
-                            Image(systemName: "checkmark")
-                        }
-                    }
+                    Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                        .frame(width: 18, height: 18)
                 }
                 .buttonStyle(.borderless)
                 .disabled(text.isEmpty)
@@ -367,7 +373,7 @@ private struct LanguagePanelCard: View {
                 .scrollContentBackground(.hidden)
                 .focused(isFocused, equals: panel.language.id)
                 .padding(8)
-                .frame(maxWidth: .infinity, minHeight: 82, alignment: .topLeading)
+                .frame(maxWidth: .infinity, minHeight: 82, maxHeight: .infinity, alignment: .topLeading)
                 .background(.background.opacity(0.55), in: RoundedRectangle(cornerRadius: 8))
                 .overlay {
                     if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -382,6 +388,7 @@ private struct LanguagePanelCard: View {
                 }
         }
         .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background.opacity(0.82), in: RoundedRectangle(cornerRadius: 8))
     }
 

@@ -55,6 +55,7 @@ final class FloatingPanelController {
         panel.titleVisibility = .visible
         panel.titlebarAppearsTransparent = false
         panel.isMovableByWindowBackground = true
+        panel.minSize = NSSize(width: 720, height: 500)
         panel.isFloatingPanel = true
         panel.animationBehavior = .utilityWindow
         panel.onCancel = { [weak self] in self?.hide() }
