@@ -60,38 +60,48 @@ struct TranslatorPanelView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Image("translator-buddy-icon-master", bundle: .module)
-                .resizable()
-                .interpolation(.high)
-                .frame(width: 40, height: 40)
-                .clipShape(RoundedRectangle(cornerRadius: 9))
+        HStack(spacing: 16) {
+            HStack(spacing: 12) {
+                Image("translator-buddy-mark-v2", bundle: .module)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    .shadow(color: .black.opacity(0.14), radius: 5, y: 2)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Translator Buddy")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(viewModel.panels.map(\.language.displayName).joined(separator: " + "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Translator Buddy")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(viewModel.panels.map(\.language.displayName).joined(separator: " + "))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(action: onOpenSettings) {
                 Image(systemName: "gearshape")
+                    .font(.system(size: 16, weight: .medium))
+                    .frame(width: 30, height: 30)
             }
             .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
             .help("Language settings")
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .medium))
+                    .frame(width: 30, height: 30)
             }
             .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
             .help("Close")
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
+        .background(.thinMaterial)
     }
 
     private var mainPanel: LanguagePanelState? {
