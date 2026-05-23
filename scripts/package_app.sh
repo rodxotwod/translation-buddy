@@ -22,6 +22,11 @@ mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 cp "$BIN_DIR/$EXECUTABLE_NAME" "$APP_PATH/Contents/MacOS/$EXECUTABLE_NAME"
 chmod +x "$APP_PATH/Contents/MacOS/$EXECUTABLE_NAME"
 
+PACKAGE_RESOURCE_BUNDLE="$BIN_DIR/TranslatorBuddy_TranslatorBuddy.bundle"
+if [[ -d "$PACKAGE_RESOURCE_BUNDLE" ]]; then
+    cp -R "$PACKAGE_RESOURCE_BUNDLE" "$APP_PATH/Contents/Resources/"
+fi
+
 if [[ -f "$ROOT_DIR/Assets/AppIcon/TranslatorBuddy.icns" ]]; then
     cp "$ROOT_DIR/Assets/AppIcon/TranslatorBuddy.icns" "$APP_PATH/Contents/Resources/TranslatorBuddy.icns"
 fi

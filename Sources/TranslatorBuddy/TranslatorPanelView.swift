@@ -62,9 +62,7 @@ struct TranslatorPanelView: View {
     private var header: some View {
         HStack(spacing: 16) {
             HStack(spacing: 12) {
-                Image("translator-buddy-mark-v2", bundle: .module)
-                    .resizable()
-                    .interpolation(.high)
+                BrandMarkImage()
                     .frame(width: 48, height: 48)
                     .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                     .shadow(color: .black.opacity(0.14), radius: 5, y: 2)
@@ -237,6 +235,37 @@ private struct HistoryRecordRow: View {
     private var summary: String {
         let targets = record.outputs.map(\.target.displayName).joined(separator: ", ")
         return "\(record.sourceLanguageIdentifier.uppercased()) -> \(targets)"
+    }
+}
+
+private struct BrandMarkImage: View {
+    var body: some View {
+        if let image = Self.loadImage() {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+        } else {
+            Image(systemName: "character.bubble.fill")
+                .resizable()
+                .scaledToFit()
+                .padding(9)
+                .foregroundStyle(.white)
+                .background(Color.teal)
+        }
+    }
+
+    private static func loadImage() -> NSImage? {
+        let resourceName = "translator-buddy-mark-v2"
+        for bundle in [Bundle.module, Bundle.main] {
+            if let url = bundle.url(forResource: resourceName, withExtension: "png"),
+               let image = NSImage(contentsOf: url) {
+                return image
+            }
+            if let image = bundle.image(forResource: resourceName) {
+                return image
+            }
+        }
+        return NSImage(named: resourceName)
     }
 }
 
