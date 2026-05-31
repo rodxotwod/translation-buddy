@@ -5,6 +5,8 @@ import Foundation
 final class WindowSettingsStore: ObservableObject {
     static let keepAboveOtherAppsKey = "translatorBuddy.keepAboveOtherApps"
 
+    @Published var focusRequestID = UUID()
+
     @Published var keepsWindowAboveOtherApps: Bool {
         didSet {
             defaults.set(keepsWindowAboveOtherApps, forKey: key)
@@ -21,5 +23,9 @@ final class WindowSettingsStore: ObservableObject {
         self.defaults = defaults
         self.key = key
         self.keepsWindowAboveOtherApps = defaults.bool(forKey: key)
+    }
+
+    func requestMainPanelFocus() {
+        focusRequestID = UUID()
     }
 }

@@ -37,6 +37,7 @@ final class FloatingPanelController {
         center(panel)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
+        windowSettingsStore.requestMainPanelFocus()
     }
 
     func hide() {

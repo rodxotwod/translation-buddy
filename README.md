@@ -4,7 +4,13 @@ Translator Buddy is a native macOS SwiftUI app for quick multi-language translat
 
 ## Download And Install
 
-The latest packaged app is committed at:
+The latest packaged app is committed in a GitHub-friendly download folder:
+
+```text
+github-download/TranslatorBuddy/Translator Buddy.zip
+```
+
+The build script also writes the same archive to:
 
 ```text
 dist/Translator Buddy.zip
@@ -12,9 +18,10 @@ dist/Translator Buddy.zip
 
 To use it on another Mac:
 
-1. Download `dist/Translator Buddy.zip` from this repository.
+1. Download `github-download/TranslatorBuddy/Translator Buddy.zip` from this repository.
 2. Unzip it.
-3. Open `Translator Buddy.app`.
+3. Move `Translator Buddy.app` to your `Applications` folder if you want it installed like a normal Mac app.
+4. Open `Translator Buddy.app`.
 
 Because this app is currently ad-hoc signed and not notarized by Apple, macOS Gatekeeper may block the first launch. If that happens, right-click the app and choose **Open**.
 
@@ -39,6 +46,13 @@ This creates:
 ```text
 dist/Translator Buddy.app
 dist/Translator Buddy.zip
+```
+
+To update the committed GitHub download artifact after packaging:
+
+```bash
+mkdir -p "github-download/TranslatorBuddy"
+cp "dist/Translator Buddy.zip" "github-download/TranslatorBuddy/Translator Buddy.zip"
 ```
 
 ## Development

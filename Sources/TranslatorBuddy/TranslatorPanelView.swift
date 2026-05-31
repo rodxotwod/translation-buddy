@@ -43,7 +43,10 @@ struct TranslatorPanelView: View {
                 .accessibilityHidden(true)
         }
         .onAppear {
-            focusedLanguageID = TranslationTarget.spanish.id
+            requestMainPanelFocus()
+        }
+        .onChange(of: windowSettingsStore.focusRequestID) {
+            requestMainPanelFocus()
         }
         .onExitCommand {
             onClose()
@@ -168,7 +171,10 @@ struct TranslatorPanelView: View {
                             text: binding(for: panel.language),
                             isFocused: $focusedLanguageID,
                             isMain: false,
-                            onMakeMain: { viewModel.setMainLanguage(panel.language) },
+                            onMakeMain: {
+                                viewModel.setMainLanguage(panel.language)
+                                requestFocus(for: panel.language)
+                            },
                             onCopy: { copyText(panel.text) },
                             onClear: { viewModel.clearResult(for: panel.language) }
                         )
@@ -192,6 +198,19 @@ struct TranslatorPanelView: View {
     private func copyText(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func requestMainPanelFocus() {
+        displayMode = .translation
+        requestFocus(for: viewModel.mainLanguage)
+    }
+
+    private func requestFocus(for language: TranslationTarget) {
+        Task { @MainActor in
+            focusedLanguageID = nil
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            focusedLanguageID = language.id
+        }
     }
 }
 
