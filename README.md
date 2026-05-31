@@ -63,8 +63,17 @@ Run tests:
 swift test
 ```
 
-Run from source:
+Run locally from source for quick iteration:
 
 ```bash
 swift run TranslatorBuddy
 ```
+
+Run locally as a real macOS app bundle:
+
+```bash
+./scripts/package_app.sh
+open -n "dist/Translator Buddy.app"
+```
+
+Use `swift run TranslatorBuddy` when you want the fastest code/test loop. Use the packaged app-bundle run when testing macOS-specific behavior such as the Dock icon, app resources, global shortcut, window focus, pinning, and install packaging.
